@@ -158,6 +158,12 @@ class MySqliteRequest
         puts "106table_name: #{@table_name}"
         puts "107Script started. Current directory: #{Dir.pwd}"
         puts "108@selected_rows before: #{@selected_rows.inspect}"
+        #Check if there are WHERE conditions
+        if @where_conditions.empty?
+            puts "No WHERE conditions"
+            return @selected_rows
+        end
+        
         
 
         #Load data from main table
@@ -175,22 +181,17 @@ class MySqliteRequest
                 return @selected_rows
             end
         end
-        
+        puts "SQL184Where conditions: #{@where_conditions}"
+        puts "SQL185Debug - db_a: #{db_a.inspect}"
+        puts "SQL186CSV file path: #{@table_name}"
+        puts "SQL187Line 2 from db_a: #{db_a[1]}"
 
         #Insert data from one file to another
         if !@insert_table_name.empty? && !@insert_values.empty?
             perform_insert
         end
                 
-        #Check if there are WHERE conditions
-        if @where_conditions.empty?
-            puts "No WHERE conditions"
-            return @selected_rows
-        end
-        puts "SQL181Where conditions: #{@where_conditions}"
-        puts "Debug - db_a: #{db_a.inspect}"
-        puts "CSV file path: #{@table_name}"
-        puts "Line 2 from db_a: #{db_a[1]}"
+
 
         #Filter rows based on WHERE conditions
         db_a.each do |row|
@@ -226,35 +227,35 @@ class MySqliteRequest
             end
 
             #Perform join
-            matched_rows = db_a.map do |row|
-                puts "229 #{row}"
+            #Iterate through matched rows and add corresponding join rows
+            matched_rows.each do |row|
+                puts "232matchedrow #{row}"
                 joined_rows = db_b.select do |b_row|
-                    # puts "231 #{b_row}"
-                    #Case-insensitive column name matching
                     column_index = b_row.headers.index { |header| header.to_s.downcase == join_column_name.downcase }
+                    puts "235db_b row: #{row}"
                     
                     if column_index
-                        compare_result = b_row[column_index] == row[join_table_name.to_sym]
+                        #Remove non-alphanumeric chars from b_row[column_index] and row[join_table_name.to_sym]
+                        cleaned_b_value = b_row[column_index].to_s.gsub(/[^0-9a-z]/i, '')
+                        cleaned_row_value = row[join_table_name.to_sym].to_s.gsub(/[^0-9a-z]/i, '')
+                        compare_result = cleaned_b_value == cleaned_row_value
                         puts "237: b_row[#{column_index}]: #{b_row[column_index]}"
-                        puts "238: b_row[0]: #{b_row[0]}"
+                        puts "238: row[join_table_name.to_sym]: #{row[join_table_name.to_sym]}"
                         puts "239compresult #{compare_result}" 
                         if compare_result
                             merged_hash = row.to_h.merge(b_row.to_h)
                             merged_row = CSV::Row.new(merged_hash.keys, merged_hash.values)
+                            puts "248 #{merged_row}"
                             merged_row = match_where_conditions?(merged_row, @where_conditions, @table_name, join_table_name, join_filename)
-                            @selected_rows << merged_row if merged_row
+                            puts "250 #{merged_row}"
+                            @selected_rows << merged_row unless merged_row.nil?
                         end
                         puts "246" 
+                        puts "252 #{@selected_rows}" 
                     else
                         puts "222 Warning: Join column '#{join_column_name}' not found in headers"
                     end
                 end
-
-                # if joined_rows.empty?
-                #     match_where_conditions?(row, @where_conditions, @table_name, join_table_name, join_filename)
-                # else
-                #     false
-                # end
             end
         else
             puts "No join conditions specified"
@@ -282,6 +283,7 @@ class MySqliteRequest
                 @selected_rows.reverse! if order_direction == :desc
             else
                 puts "Warning: Column '#{order_column}' does not exist for sorting"
+                @selected_rows = []
             end
         else
             # Apply a default sorting order (e.g. ascending by ID) if no ORDER by class provided
@@ -290,7 +292,7 @@ class MySqliteRequest
 
         # Print the sorted result
         puts "292Selected rows: #{@selected_rows}"
-        @selected_rows = matched_rows
+        return matched_rows
     end
 
 
