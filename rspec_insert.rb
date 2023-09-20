@@ -11,11 +11,10 @@ RSpec.describe MySqliteRequest do
       # Create an instance of your MySqliteRequest class
       request = MySqliteRequest.new
       # Add debugging output for @table_name
-        puts "Table name before insert: #{request.instance_variable_get(:@table_name)}"
-
-
+        puts "rsp14Table name before insert: #{request.instance_variable_get(:@table_name)}"
         # Specify the file to insert data into
         test_file = 'nba_player_data_test.csv'
+        puts "rsp19Table name before insert: #{request.instance_variable_get(:@table_name)}"
 
         data_to_insert = {
         name: 'Matt Zunic',
@@ -24,7 +23,7 @@ RSpec.describe MySqliteRequest do
         position: 'G-F',
         height: '6-3',
         weight: '195',
-        birth_: 'December 19, 1919',
+        birth_date: 'December 19, 1919',        
         college: 'George Washington University'
       }
 
@@ -42,8 +41,7 @@ RSpec.describe MySqliteRequest do
       last_line = lines[-1]
 
       # Define the expected last line
-      expected_last_line = 'Matt Zunic,1949,1949,G-F,6-3,195,"December 19, 1919",George Washington University'
-
+      expected_last_line = "Matt Zunic,1949,1949,G-F,6-3,195,\"December 19, 1919\",George Washington University\r"
       puts "Last line in file:"
       puts last_line
 

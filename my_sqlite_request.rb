@@ -6,7 +6,7 @@ class MySqliteRequest
         @table_name = ''
         @select_columns = []
         @where_conditions = {}
-        @join_conditions = nil
+        @join_conditions = []
         @selected_rows = []
         @join_type = nil
         @order_by = nil
@@ -65,20 +65,20 @@ class MySqliteRequest
 
     def insert(table_name)
         file_path = File.expand_path(table_name)
-        puts "File path: #{file_path}"
+        puts "SQ68File path: #{file_path}"
         @table_name = table_name
         @mode = "a+" # Set the mode to write, which replaces the file content
         @insert_table_name = table_name
-        puts "insert_tbl_name: #{@insert_table_name}"
+        puts "SQ72insert_tbl_name: #{@insert_table_name}"
         self
     end
     def perform_insert
         return unless File.exist?(@insert_table_name)
-        puts "71: #{@insert_table_name}" # Add this line for debugging
+        puts "SQ77: #{@insert_table_name}" # Add this line for debugging
         if File.writable?(@insert_table_name)
             puts "File is writable" # Add this line for debugging
             begin
-                CSV.open(@insert_table_name, 'a+', headers: true) do |dest_csv|
+                CSV.open(@insert_table_name, 'a+', headers: true, row_sep: "\r\n") do |dest_csv|
                 # If file is empty, add headers
                 if dest_csv.count.zero? && dest_csv.header_row.nil?
                     puts "77Before condition - dest_csv.count: #{dest_csv.count}"
@@ -86,7 +86,7 @@ class MySqliteRequest
                     puts "Inside condition - Adding headers"
                     puts "Headers added"  # Add this line for debugging
                 end
-                    puts "83After condition"
+                    puts "sq89After condition"
                     #Append the data to the CSV
                     @insert_values.each do |data|
                         puts "86 inserting values"
@@ -117,8 +117,8 @@ class MySqliteRequest
     def values(data)
         # receives data, a has of data on formant key => value
         @insert_values << data
-        puts "insert_values: #{@insert_values}"
-        puts "84: #{!@insert_values.empty?}"
+        puts "sq120insert_values: #{@insert_values}"
+        puts "sq121insVal!emp: #{!@insert_values.empty?}"
         self
     end
 
@@ -146,7 +146,7 @@ class MySqliteRequest
         if @mode == "r"
             puts "140dba: "
             @selected_rows.each { |row| puts row }
-        elsif @mode == "a"
+        elsif @mode == "a+"
             puts "run method"
             puts "table_name: #{@table_name}"
         end
@@ -154,15 +154,11 @@ class MySqliteRequest
         
         matched_rows = []
         # selected_rows = @selected_rows.dup
-        puts "150dba:"
-        puts "106table_name: #{@table_name}"
-        puts "107Script started. Current directory: #{Dir.pwd}"
+        puts "157dba:"
+        puts "158table_name: #{@table_name}"
+        puts "159Script started. Current directory: #{Dir.pwd}"
         puts "108@selected_rows before: #{@selected_rows.inspect}"
-        #Check if there are WHERE conditions
-        if @where_conditions.empty?
-            puts "No WHERE conditions"
-            return @selected_rows
-        end
+
         
         
 
@@ -188,24 +184,31 @@ class MySqliteRequest
 
         #Insert data from one file to another
         if !@insert_table_name.empty? && !@insert_values.empty?
+            puts "sq191 insert"
             perform_insert
         end
-                
-
-
-        #Filter rows based on WHERE conditions
-        db_a.each do |row|
-            puts "196SQLRow: #{row}"
-            if match_where_conditions?(row, @where_conditions, @table)
-                matched_rows << row
-                puts "SQL199: #{matched_rows}"
+           
+        #Check if there are WHERE conditions; Filter rows based on WHERE conditions
+        if @where_conditions.empty?
+            puts "No WHERE conditions"
+        else
+            db_a.each do |row|
+                puts "196SQLRow: #{row}"
+                if match_where_conditions?(row, @where_conditions, @table)
+                    matched_rows << row
+                    puts "SQL199: #{matched_rows}"
+                end
             end
-        end
+        end # line 192
+
+
+        
+
         # Print out matching rows
-        # puts "Matched rows: "
-        # matched_rows.each do |key, value|
-        #     puts  "#{key}: #{value}"
-        # end
+        puts "208Matched rows: "
+        matched_rows.each do |key, value|
+            puts  "#{key}: #{value}"
+        end
         # # end
         # @selected_rows = matched_rows
 
@@ -213,6 +216,20 @@ class MySqliteRequest
         
         #join if there are join conditions
         if !@join_conditions.empty?
+            process_join_conditions
+            puts "sq220: join not empty"
+        else
+            puts "sq222: join empty"
+        end
+
+        #Process order by if present
+        process_order_by
+        return @selected_rows
+    end
+
+    def process_join_conditions
+        if !@join_conditions.empty?
+            puts "219 #{@join_conditions.first}"
             join_table_name, join_column_data = @join_conditions.first
             join_filename = join_column_data[:file]
             join_column_name = join_column_data[:column]
@@ -246,9 +263,11 @@ class MySqliteRequest
                             merged_hash = row.to_h.merge(b_row.to_h)
                             merged_row = CSV::Row.new(merged_hash.keys, merged_hash.values)
                             puts "248 #{merged_row}"
-                            merged_row = match_where_conditions?(merged_row, @where_conditions, @table_name, join_table_name, join_filename)
-                            puts "250 #{merged_row}"
-                            @selected_rows << merged_row unless merged_row.nil?
+                            if compare_result
+                                @selected_rows << merged_row
+                                puts "250 #{merged_row}"
+                                puts "252 #{@selected_rows}"
+                            end
                         end
                         puts "246" 
                         puts "252 #{@selected_rows}" 
@@ -260,7 +279,9 @@ class MySqliteRequest
         else
             puts "No join conditions specified"
         end  
-                
+    end
+          
+    def process_order_by
         #Sort the result if there is an ORDER BY
         if @order_by
             puts "there is an order by"
@@ -291,8 +312,9 @@ class MySqliteRequest
         end
 
         # Print the sorted result
-        puts "292Selected rows: #{@selected_rows}"
-        return matched_rows
+        # puts "292Selected rows: #{@selected_rows}"
+        # puts "292Matchedrows: #{matched_rows}"
+        return @selected_rows
     end
 
 
